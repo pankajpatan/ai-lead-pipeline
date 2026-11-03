@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lead Pipeline Demo</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c2230; --muted:#5d6678; --line:#dde1e8; --accent:#2f5bea;
+          --strong:#1f8a4c; --possible:#b7791f; --poor:#a33; --spam:#777; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:1100px; margin:0 auto; padding:24px 16px; display:grid; gap:20px; grid-template-columns:minmax(0,380px) minmax(0,1fr); }
+  @media (max-width: 820px) { main { grid-template-columns:1fr; } }
+  h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:16px; margin:0 0 12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+  textarea { min-height:140px; resize:vertical; }
+  button { font:inherit; padding:7px 12px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .hp { position:absolute; left:-9999px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .lead { border-top:1px solid var(--line); padding:12px 0; }
+  .lead:first-child { border-top:0; }
+  .tier { display:inline-block; padding:1px 8px; border-radius:99px; color:#fff; font-size:12px; font-weight:600; }
+  .t-strong{background:var(--strong)} .t-possible{background:var(--possible)} .t-poor{background:var(--poor)} .t-spam,.t-none{background:var(--spam)}
+  ul { margin:6px 0; padding-left:18px; } li { margin:2px 0; }
+  .yes{color:var(--strong)} .no{color:var(--poor)} .unknown{color:var(--muted)}
+  .msg { white-space:pre-wrap; background:var(--bg); border-radius:6px; padding:8px; font-size:13px; margin:6px 0; }
+</style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <h1>Northwind Studio: project enquiry</h1>
+    <p class="muted">Demo form. Leads are qualified against <code>criteria.yaml</code>.</p>
+    <form id="form">
+      <label for="name">Name</label><input id="name" name="name" required maxlength="120">
+      <label for="email">Email</label><input id="email" name="email" type="email" required>
+      <label for="company">Company (optional)</label><input id="company" name="company">
+      <label for="message">What do you need?</label><textarea id="message" name="message" required minlength="10"></textarea>
+      <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div class="row">
+        <button class="primary" type="submit">Send enquiry</button>
+        <span id="status" class="muted" role="status"></span>
+      </div>
+    </form>
+    <p class="muted" style="margin-top:16px">Fill with a sample:</p>
+    <div class="row">
+      <button type="button" data-sample="strong">Strong fit</button>
+      <button type="button" data-sample="vague">Vague</button>
+      <button type="button" data-sample="poor">Low budget</button>
+      <button type="button" data-sample="spam">Spam</button>
+    </div>
+  </section>
+  <section class="card">
+    <div class="row" style="justify-content:space-between;margin:0 0 8px"><h2>Leads</h2>
+      <span><button type="button" id="refresh">Refresh</button> <button type="button" id="reset">Clear all</button></span></div>
+    <div id="leads" class="muted">No leads yet.</div>
+  </section>
+</main>
+<script>
+const SAMPLES = {
+  strong: { name: "Priya Shah", email: "priya@brightsmiles.example", company: "Bright Smiles Dental",
+    message: "Hi, I'm the owner of a dental clinic. We need a new website with online booking. Budget is around $6,000 and we'd like to start next month." },
+  vague: { name: "Sam", email: "sam@example.com", company: "",
+    message: "Hello, can you help us with a website? Let me know what you charge." },
+  poor: { name: "Alex Kim", email: "alex@example.com", company: "",
+    message: "Looking for a mobile app like Uber for my startup. Budget $800, no rush, maybe next year." },
+  spam: { name: "Growth Team", email: "growth@seo.example", company: "",
+    message: "We offer SEO services and high quality backlinks to rank your site on page one." },
+};
+const $ = (s) => document.querySelector(s);
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) k === "class" ? n.className = v : n.setAttribute(k, v);
+  for (const k of kids) n.append(k);   // strings become text nodes, never HTML
+  return n;
+}
+document.querySelectorAll("[data-sample]").forEach(b => b.onclick = () => {
+  const s = SAMPLES[b.dataset.sample];
+  for (const k of Object.keys(s)) $("#" + k).value = s[k];
+});
+$("#form").onsubmit = async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.target));
+  const r = await fetch("/intake", { method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify(body) });
+  const data = await r.json();
+  $("#status").textContent = r.ok ? (data.duplicate ? "Already received." : "Received.") :
+    "Please check: " + data.errors.map(x => x.field).join(", ");
+  if (r.ok) { e.target.reset(); setTimeout(load, 300); }
+};
+async function load() {
+  const leads = await (await fetch("/api/leads")).json();
+  const box = $("#leads");
+  box.replaceChildren();
+  if (!leads.length) { box.textContent = "No leads yet."; return; }
+  for (const l of leads) {
+    const q = l.qualification || {};
+    const head = el("div", {}, el("span", {class: "tier t-" + (l.tier || "none")}, l.tier || l.state), " ",
+      el("strong", {}, l.name), " ", el("span", {class: "muted"}, `${l.email} · score ${l.score ?? "–"} · ${l.state}`));
+    const lead = el("div", {class: "lead"}, head, el("div", {class: "msg"}, l.message));
+    if (q.summary) lead.append(el("div", {}, q.summary));
+    if (q.checks) lead.append(el("ul", {}, ...q.checks.map(c =>
+      el("li", {}, el("span", {class: c.met}, c.met), ` ${c.id}`, c.evidence ? el("span", {class: "muted"}, ` — “${c.evidence}”`) : ""))));
+    if (q.missing_info && q.missing_info.length) lead.append(el("div", {class: "muted"}, "Ask: " + q.missing_info.join(" ")));
+    if (q.next_action) lead.append(el("div", {}, el("strong", {}, "Next: "), q.next_action));
+    if (l.error) lead.append(el("div", {class: "no"}, l.error));
+    box.append(lead);
+  }
+}
+$("#refresh").onclick = load;
+$("#reset").onclick = async () => { await fetch("/api/demo/reset", {method: "POST"}); load(); };
+load();
+</script>
+</body>
+</html>

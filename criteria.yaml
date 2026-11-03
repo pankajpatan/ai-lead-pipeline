@@ -1,0 +1,44 @@
+# Qualification rules for the sample business. Change this file, not the code.
+business: Northwind Studio
+description: Small studio that builds websites, web apps and mobile apps for small businesses.
+
+# Words that show the enquiry is about a service we offer (used by the scripted qualifier;
+# Claude reads the description and the criteria instead).
+services:
+  website: [website, landing page, wordpress, webflow, redesign, site]
+  web app: [web app, dashboard, portal, saas, admin panel, platform]
+  mobile app: [mobile app, ios, android, react native, iphone app, app store]
+  online store: [e-commerce, ecommerce, online store, shopify, woocommerce]
+
+criteria:
+  - id: service_in_scope
+    question: Is the requested work one of our services?
+    weight: 30
+    required: true   # a clear "no" makes the lead poor, whatever else it says
+  - id: budget
+    question: Is the budget at least the minimum?
+    weight: 30
+    min_budget_usd: 3000
+    required: true   # a stated budget below the minimum makes the lead poor
+  - id: timeline
+    question: Does the client want to start within 3 months?
+    weight: 20
+    max_start_months: 3
+  - id: decision_maker
+    question: Is the person writing the owner, founder or budget holder?
+    weight: 20
+
+# Score is the sum of weights for criteria answered "yes". Unknown counts as 0.
+tiers:
+  strong: 70
+  possible: 30
+
+# Phrases that mark sales pitches and spam rather than enquiries.
+spam_phrases:
+  - seo services
+  - backlinks
+  - guest post
+  - crypto investment
+  - we can increase your traffic
+  - outsourcing partner
+  - lead generation services
