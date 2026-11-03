@@ -11,13 +11,15 @@ import hashlib
 import logging
 import re
 
+from .alerts import Notifier, attention_text, strong_lead_text
 from .crm import CRM, SyncState
 from .criteria import Criteria
-from .drafts import Drafter, check_draft
+from .drafts import Draft, Drafter, check_draft
+from .mailer import Mailer
 from .models import Enquiry
 from .qualifier import Qualifier
 from .scoring import score
-from .store import Store
+from .store import InvalidTransition, Store
 
 log = logging.getLogger("pipeline")
 
@@ -41,12 +43,28 @@ def idempotency_key(enquiry: Enquiry) -> str:
 
 class Pipeline:
     def __init__(self, store: Store, qualifier: Qualifier, criteria: Criteria,
-                 crm: CRM | None = None, drafter: Drafter | None = None):
+                 crm: CRM | None = None, drafter: Drafter | None = None,
+                 mailer: Mailer | None = None, notifier: Notifier | None = None,
+                 base_url: str = "http://127.0.0.1:8020"):
         self.store = store
         self.qualifier = qualifier
         self.criteria = criteria
         self.crm = crm
         self.drafter = drafter
+        self.mailer = mailer
+        self.notifier = notifier
+        self.base_url = base_url.rstrip("/")
+
+    def _alert(self, lead_id: int, text_for) -> None:
+        if self.notifier is None:
+            return
+        lead = self.store.get(lead_id)
+        try:
+            ok = self.notifier.notify(text_for(lead, self.base_url))
+        except Exception:  # alerts must never break the pipeline
+            log.exception("alert failed lead_id=%s", lead_id)
+            ok = False
+        self.store.log(lead_id, "alert_sent" if ok else "alert_failed", self.notifier.name)
 
     def intake(self, enquiry: Enquiry) -> tuple[int, str]:
         """Save the enquiry. Returns (lead_id, outcome): 'new', 'duplicate' or 'rejected'."""
@@ -63,8 +81,12 @@ class Pipeline:
         return lead_id, "new"
 
     def process(self, lead_id: int) -> None:
-        """Run every remaining step for a lead, stopping at the first failure."""
-        steps = {"received": self.qualify, "qualified": self.sync_crm, "crm_synced": self.draft}
+        """Run every remaining step for a lead, stopping at the first failure.
+
+        It stops at draft_ready: sending happens only after a person approves.
+        """
+        steps = {"received": self.qualify, "qualified": self.sync_crm, "crm_synced": self.draft,
+                 "approved": self.send}
         while True:
             lead = self.store.get(lead_id)
             step = steps.get(lead["state"]) if lead else None
@@ -74,12 +96,14 @@ class Pipeline:
                 return
 
     def _missing(self, step) -> bool:
-        return (step == self.sync_crm and self.crm is None) or (step == self.draft and self.drafter is None)
+        return ((step == self.sync_crm and self.crm is None) or (step == self.draft and self.drafter is None)
+                or (step == self.send and self.mailer is None))
 
     def _fail(self, lead_id: int, step: str, resume: str, exc: Exception, attempt: int | None = None) -> bool:
         log.exception("%s failed lead_id=%s", step, lead_id)
         self.store.transition(lead_id, "needs_attention", {"step": step, "attempt": attempt},
                               error=f"{step}: {type(exc).__name__}: {exc}"[:500], resume_state=resume)
+        self._alert(lead_id, attention_text)
         return False
 
     # ---------- steps: each returns True when the lead moved on ----------
@@ -143,7 +167,64 @@ class Pipeline:
             return self._fail(lead_id, "draft", "crm_synced", exc)
         self.store.transition(lead_id, "draft_ready", {"drafter": draft.drafter, "warnings": draft.warnings},
                               draft=draft.model_dump(), error=None, resume_state=None)
-        return True
+        if lead["tier"] == "strong":
+            self._alert(lead_id, strong_lead_text)
+        return False  # wait here for a person
+
+    # ---------- human decisions ----------
+
+    def approve(self, lead_id: int, subject: str, body: str, confirm_warnings: bool = False,
+                approver: str = "admin") -> dict:
+        """Approve the (possibly edited) draft. Returns {"ok", "warnings"}.
+
+        Edited text is checked again. If it has warnings, approval needs confirm_warnings=True,
+        so nobody sends a flagged reply by accident.
+        """
+        lead = self.store.get(lead_id)
+        if lead is None or lead["state"] != "draft_ready":
+            raise InvalidTransition("Only a lead with a draft waiting can be approved")
+        original = lead["draft"] or {}
+        final = check_draft(Draft(subject=subject.strip(), body=body.strip(), drafter=original.get("drafter", "")),
+                            lead, self.criteria)
+        if final.warnings and not confirm_warnings:
+            return {"ok": False, "warnings": final.warnings}
+        edited = (final.subject, final.body) != (original.get("subject"), original.get("body"))
+        draft = {**original, "subject": final.subject, "body": final.body, "warnings": final.warnings,
+                 "edited": edited, "approved_by": approver}
+        self.store.transition(lead_id, "approved",
+                              {"by": approver, "edited": edited, "warnings_confirmed": final.warnings},
+                              draft=draft)
+        return {"ok": True, "warnings": final.warnings}
+
+    def reject(self, lead_id: int, reason: str, approver: str = "admin") -> None:
+        lead = self.store.get(lead_id)
+        if lead is None or lead["state"] not in ("draft_ready", "needs_attention", "qualified"):
+            raise InvalidTransition("This lead can't be rejected now")
+        self.store.transition(lead_id, "rejected", {"by": approver, "reason": reason[:300]}, resume_state=None)
+
+    def send(self, lead_id: int) -> bool:
+        lead = self.store.get(lead_id)
+        if lead is None or lead["state"] != "approved" or self.mailer is None:
+            return False
+        draft = dict(lead["draft"])
+        if not draft.get("message_id"):  # not sent yet; a retry after a crash must not send twice
+            try:
+                sent = self.mailer.send(lead["email"], draft["subject"], draft["body"],
+                                        self.criteria.reply.sender_name)
+            except Exception as exc:
+                return self._fail(lead_id, "send", "approved", exc)
+            draft.update(message_id=sent.message_id, delivered=sent.delivered, via=sent.via)
+            self.store.update(lead_id, draft=draft)
+        if self.crm is not None:
+            try:  # the email is what matters; a failed CRM log is recorded, not fatal
+                self.crm.log_reply(lead, draft["subject"], draft["body"], draft["delivered"])
+                self.store.log(lead_id, "crm_reply_logged")
+            except Exception as exc:
+                log.warning("CRM reply log failed lead_id=%s: %s", lead_id, exc)
+                self.store.log(lead_id, "crm_reply_log_failed", str(exc)[:300])
+        self.store.transition(lead_id, "sent", {"via": draft["via"], "delivered": draft["delivered"],
+                                                "message_id": draft["message_id"]}, error=None, resume_state=None)
+        return False
 
     def retry(self, lead_id: int) -> bool:
         """Resume a needs_attention lead from the step that failed."""

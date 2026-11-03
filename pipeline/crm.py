@@ -60,6 +60,15 @@ class CRM(Protocol):
 
     def sync(self, lead: dict, state: SyncState, save: Callable[[SyncState], None]) -> SyncState: ...
 
+    def log_reply(self, lead: dict, subject: str, body: str, delivered: bool) -> None: ...
+
+
+def reply_note_html(subject: str, body: str, delivered: bool) -> str:
+    e = html.escape
+    head = "Reply sent" if delivered else "Reply approved (recorded only, not emailed)"
+    return (f"<p><b>{head}: {e(subject)}</b></p>"
+            f"<p>{e(body).replace(chr(10), '<br>')}</p><p><i>Approved in the lead pipeline.</i></p>")
+
 
 def split_name(full: str) -> tuple[str, str]:
     parts = full.strip().split(None, 1)
@@ -228,6 +237,22 @@ class HubSpotCRM:
             save(state)
         return state
 
+    def log_reply(self, lead: dict, subject: str, body: str, delivered: bool) -> None:
+        contact_id = (lead.get("crm") or {}).get("contact_id")
+        if not contact_id:
+            return
+        note = {
+            "properties": {"hs_timestamp": str(int(time.time() * 1000)),
+                           "hs_note_body": reply_note_html(subject, body, delivered)},
+            "associations": [{"to": {"id": contact_id},
+                              "types": [{"associationCategory": "HUBSPOT_DEFINED",
+                                         "associationTypeId": NOTE_TO_CONTACT}]}],
+        }
+        self._request("POST", f"/crm/objects/{VERSION}/notes", json=note)
+        if delivered and lead["tier"] != "poor":  # a decline keeps UNQUALIFIED
+            self._request("PATCH", f"/crm/objects/{VERSION}/contacts/{contact_id}",
+                          json={"properties": {"hs_lead_status": "ATTEMPTED_TO_CONTACT"}})
+
 
 class FakeCRM:
     """In-memory CRM for the demo without a HubSpot token, and for tests."""
@@ -268,3 +293,12 @@ class FakeCRM:
             state.steps.append("deal")
             save(state)
         return state
+
+    def log_reply(self, lead: dict, subject: str, body: str, delivered: bool) -> None:
+        self._maybe_fail("log_reply")
+        contact_id = (lead.get("crm") or {}).get("contact_id")
+        self.notes.append({"contact_id": contact_id, "html": reply_note_html(subject, body, delivered)})
+        if delivered and lead["tier"] != "poor":
+            for c in self.contacts.values():
+                if c["id"] == contact_id:
+                    c["status"] = "ATTEMPTED_TO_CONTACT"

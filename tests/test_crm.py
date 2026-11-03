@@ -198,7 +198,9 @@ def test_template_drafts_per_tier():
 def test_check_draft_flags_problems():
     bad = Draft(subject="Quote", body="Hi [Name], our sites start at $2,500. Book: https://cal.example.com/northwind/intro-call")
     w = check_draft(bad, lead("possible"), CRITERIA).warnings
-    assert any("price" in x and "$2,500" in x for x in w)
+    assert any("price" in x and "$2,500." in x and "$2,500.." not in x for x in w)
+    end = check_draft(Draft(subject="Re", body="Ours start at $4,000. Thanks"), lead("possible"), CRITERIA).warnings
+    assert end == ["Mentions a price the client did not give: $4,000."]
     assert any("placeholder" in x for x in w)
     assert any("Booking link offered" in x for x in w)
     missing = check_draft(Draft(subject="Hi", body="Thanks!"), lead(), CRITERIA).warnings

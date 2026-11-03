@@ -208,7 +208,7 @@ def test_intake_json_runs_every_step_in_background(client):
     assert r.status_code == 202 and r.json() == {"ok": True, "lead_id": 1, "duplicate": False}
     lead = client.get("/api/leads/1").json()
     assert lead["state"] == "draft_ready" and lead["tier"] == "strong"
-    assert [e["kind"] for e in lead["events"]] == ["received", "qualified", "crm_synced", "draft_ready"]
+    assert [e["kind"] for e in lead["events"]] == ["received", "qualified", "crm_synced", "draft_ready", "alert_sent"]
     assert lead["crm"]["contact_id"] == "1" and lead["crm"]["deal_id"] == "1"
     assert "cal.example.com" in lead["draft"]["body"] and lead["draft"]["warnings"] == []
     assert client.get("/health").json()["crm"] == "fake"

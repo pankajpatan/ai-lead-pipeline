@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lead Review</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c2230; --muted:#5d6678; --line:#dde1e8; --accent:#2f5bea;
+          --strong:#1f8a4c; --possible:#b7791f; --poor:#a33; --spam:#777; --warn-bg:#fff6e5; --err-bg:#fdecec; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1d2128; --text:#e6e9ef; --muted:#9aa3b2; --line:#2e3440; --accent:#6d8dff;
+            --warn-bg:#3a2f16; --err-bg:#3a1d1d; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  header { max-width:980px; margin:0 auto; padding:20px 16px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:20px; margin:0; flex:1; } h2 { font-size:16px; margin:24px 0 10px; }
+  main { max-width:980px; margin:0 auto; padding:0 16px 40px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:12px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .tier { display:inline-block; padding:1px 8px; border-radius:99px; color:#fff; font-size:12px; font-weight:600; }
+  .t-strong{background:var(--strong)} .t-possible{background:var(--possible)} .t-poor{background:var(--poor)} .t-spam,.t-none{background:var(--spam)}
+  .muted { color:var(--muted); font-size:13px; }
+  .msg { white-space:pre-wrap; background:var(--bg); border-radius:6px; padding:8px; font-size:13px; margin:8px 0; }
+  ul { margin:6px 0; padding-left:18px; } .yes{color:var(--strong)} .no{color:var(--poor)} .unknown{color:var(--muted)}
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font:inherit;
+                    background:var(--card); color:var(--text); }
+  textarea { min-height:180px; resize:vertical; }
+  button { font:inherit; padding:7px 12px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  .warn { background:var(--warn-bg); border-radius:6px; padding:8px 10px; margin:8px 0; font-size:14px; }
+  .err { background:var(--err-bg); border-radius:6px; padding:8px 10px; margin:8px 0; font-size:14px; }
+  .grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .empty { color:var(--muted); font-size:14px; padding:4px 0 8px; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Lead review</h1>
+  <span id="status" class="muted" role="status"></span>
+  <button type="button" id="refresh">Refresh</button>
+</header>
+<main>
+  <h2>Waiting for approval</h2><div id="review"></div>
+  <h2>Needs attention</h2><div id="attention"></div>
+  <h2>Sent</h2><div id="sent"></div>
+  <h2>Other leads</h2><div id="other"></div>
+</main>
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k.startsWith("on")) n[k] = v; else n.setAttribute(k, v);
+  }
+  for (const k of kids) if (k !== null && k !== undefined && k !== "") n.append(k);  // text, never HTML
+  return n;
+}
+const say = (t) => { $("#status").textContent = t; };
+
+async function api(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" },
+                                body: JSON.stringify(body || {}) });
+  let data = {}; try { data = await r.json(); } catch (e) {}
+  return { ok: r.ok, status: r.status, data };
+}
+
+function header(l) {
+  return el("div", { class: "row" },
+    el("span", { class: "tier t-" + (l.tier || "none") }, l.tier || "–"),
+    el("strong", {}, l.name), el("span", { class: "muted" }, `${l.email} · score ${l.score ?? "–"} · #${l.id}`));
+}
+
+function details(l) {
+  const q = l.qualification || {};
+  const box = el("div", {}, el("div", { class: "msg" }, l.message));
+  if (q.summary) box.append(el("div", {}, q.summary));
+  if (q.checks) box.append(el("ul", {}, ...q.checks.map(c => el("li", {},
+    el("span", { class: c.met }, c.met), ` ${c.id}`, c.evidence ? el("span", { class: "muted" }, ` — “${c.evidence}”`) : ""))));
+  if (l.crm && l.crm.contact_id) {
+    const crm = el("div", { class: "muted" }, `CRM contact ${l.crm.contact_id}` + (l.crm.deal_id ? ` · deal ${l.crm.deal_id}` : ""));
+    if (l.crm.contact_url && /^https:\/\/app[-\w]*\.hubspot\.com\//.test(l.crm.contact_url))
+      crm.append(" · ", el("a", { href: l.crm.contact_url, target: "_blank", rel: "noopener" }, "open in HubSpot"));
+    box.append(crm);
+  }
+  return box;
+}
+
+function reviewCard(l) {
+  const d = l.draft;
+  const subject = el("input", { value: d.subject, maxlength: "200", "aria-label": "Subject" });
+  const body = el("textarea", { "aria-label": "Reply" }); body.value = d.body;
+  const warnBox = el("div");
+  const showWarnings = (ws) => { warnBox.replaceChildren(...ws.map(w => el("div", { class: "warn" }, "Check: " + w))); };
+  showWarnings(d.warnings || []);
+  let confirmed = false;
+  const approve = el("button", { class: "primary", type: "button" }, "Approve and send");
+  approve.onclick = async () => {
+    approve.disabled = true;
+    const r = await api(`/api/leads/${l.id}/approve`, { subject: subject.value, body: body.value, confirm_warnings: confirmed });
+    if (r.status === 409 && r.data.warnings) {
+      showWarnings(r.data.warnings); confirmed = true;
+      approve.textContent = "Send anyway"; approve.disabled = false;
+      say("This reply has warnings. Fix them, or click Send anyway.");
+      return;
+    }
+    if (!r.ok) { say(r.data.detail || "Could not approve."); approve.disabled = false; return; }
+    say(`Approved #${l.id}. Sending…`); setTimeout(load, 800);
+  };
+  [subject, body].forEach(x => x.oninput = () => { confirmed = false; approve.textContent = "Approve and send"; });
+  const reason = el("input", { placeholder: "Reason (optional)", maxlength: "300", "aria-label": "Reject reason" });
+  const reject = el("button", { type: "button" }, "Reject, don't reply");
+  reject.onclick = async () => {
+    const r = await api(`/api/leads/${l.id}/reject`, { reason: reason.value });
+    say(r.ok ? `Rejected #${l.id}.` : (r.data.detail || "Could not reject.")); load();
+  };
+  return el("div", { class: "card", id: "lead-" + l.id }, header(l),
+    el("div", { class: "grid" },
+      details(l),
+      el("div", {}, el("label", {}, "Subject"), subject, el("label", {}, `Reply (drafted by ${d.drafter || "?"})`), body,
+         warnBox, el("div", { class: "row", style: "margin-top:10px" }, approve),
+         el("div", { class: "row", style: "margin-top:10px" }, reason, reject))));
+}
+
+function attentionCard(l) {
+  const retry = el("button", { class: "primary", type: "button" }, "Retry");
+  retry.onclick = async () => {
+    retry.disabled = true; say(`Retrying #${l.id}…`);
+    const r = await api(`/api/leads/${l.id}/retry`);
+    say(r.ok ? `Retried #${l.id}: now ${r.data.state}.` : (r.data.detail || "Retry failed.")); load();
+  };
+  return el("div", { class: "card", id: "lead-" + l.id }, header(l),
+    el("div", { class: "err" }, l.error || "Unknown error"),
+    el("div", { class: "muted" }, `Will resume at: ${l.resume_state || "received"} · attempts: ${l.attempts}`),
+    el("div", { class: "row", style: "margin-top:8px" }, retry));
+}
+
+function sentCard(l) {
+  const d = l.draft || {};
+  const how = d.delivered ? `Emailed via ${d.via}` : "Recorded in the outbox only. Not emailed (no SMTP configured).";
+  return el("div", { class: "card", id: "lead-" + l.id }, header(l),
+    el("div", { class: d.delivered ? "muted" : "warn" }, how + (d.edited ? " · edited before sending" : "")),
+    el("details", {}, el("summary", {}, d.subject || "(no subject)"), el("div", { class: "msg" }, d.body || "")));
+}
+
+const LABELS = { approved: "Approved, sending now…", received: "Qualifying…", qualified: "Syncing to CRM…",
+                 crm_synced: "Drafting a reply…", rejected: "Rejected" };
+function otherCard(l) {
+  return el("div", { class: "card", id: "lead-" + l.id }, header(l),
+    el("div", { class: "muted" }, LABELS[l.state] || "State: " + l.state));
+}
+
+function fill(id, items, make) {
+  const box = $("#" + id);
+  box.replaceChildren(...(items.length ? items.map(make) : [el("div", { class: "empty" }, "None.")]));
+}
+
+async function load() {
+  const r = await fetch("/api/leads");
+  if (!r.ok) { say("Could not load leads."); return; }
+  const leads = await r.json();
+  fill("review", leads.filter(l => l.state === "draft_ready" && l.draft), reviewCard);
+  fill("attention", leads.filter(l => l.state === "needs_attention"), attentionCard);
+  fill("sent", leads.filter(l => l.state === "sent"), sentCard);
+  fill("other", leads.filter(l => !["draft_ready", "needs_attention", "sent"].includes(l.state)), otherCard);
+  if (location.hash && !scrolled) { const t = $(location.hash); if (t) { t.scrollIntoView(); scrolled = true; } }
+  // Leads still moving (sending, qualifying…): check again shortly, but never while someone is editing.
+  const busy = leads.some(l => ["approved", "received", "qualified", "crm_synced"].includes(l.state));
+  clearTimeout(pollTimer);
+  if (busy && polls++ < 20) pollTimer = setTimeout(() => editing() ? null : load(), 1500);
+  if (!busy) polls = 0;
+}
+let pollTimer = null, polls = 0, scrolled = false;
+const editing = () => [...document.querySelectorAll("#review input, #review textarea")].some(x => x === document.activeElement);
+$("#refresh").onclick = () => { say(""); load(); };
+load();
+</script>
+</body>
+</html>

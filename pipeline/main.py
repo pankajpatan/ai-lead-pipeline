@@ -4,29 +4,53 @@ from __future__ import annotations
 import logging
 import secrets
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
+from .alerts import LogNotifier, Notifier, SlackNotifier
 from .config import Settings
 from .crm import CRM, FakeCRM, HubSpotCRM
 from .criteria import load_criteria
 from .drafts import Drafter, TemplateDrafter
+from .mailer import Mailer, OutboxMailer, SMTPMailer
 from .models import Enquiry
 from .qualifier import Qualifier, ScriptedQualifier
 from .service import Pipeline
-from .store import STATES, Store
+from .store import STATES, InvalidTransition, Store
 
 log = logging.getLogger("pipeline")
-PAGE = Path(__file__).parent / "static" / "index.html"
+STATIC = Path(__file__).parent / "static"
 basic = HTTPBasic(auto_error=False)
 
 
+def require_same_origin(request: Request) -> None:
+    """Block cross-site requests to actions (CSRF): browsers resend basic-auth credentials
+    automatically, so a page on another site could otherwise approve or send for you."""
+    if request.headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
+        raise HTTPException(403, "Cross-site request blocked")
+    origin = request.headers.get("origin")
+    if origin and urlsplit(origin).netloc != request.headers.get("host"):
+        raise HTTPException(403, "Cross-site request blocked")
+
+
+class Approval(BaseModel):
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=10000)
+    confirm_warnings: bool = False
+
+
+class Rejection(BaseModel):
+    reason: str = Field(default="", max_length=300)
+
+
 def create_app(settings: Settings | None = None, qualifier: Qualifier | None = None,
-               crm: CRM | None = None, drafter: Drafter | None = None) -> FastAPI:
+               crm: CRM | None = None, drafter: Drafter | None = None,
+               mailer: Mailer | None = None, notifier: Notifier | None = None) -> FastAPI:
     if settings is None:
         load_dotenv()
         settings = Settings.from_env()
@@ -48,12 +72,22 @@ def create_app(settings: Settings | None = None, qualifier: Qualifier | None = N
             drafter = ClaudeDrafter(settings.anthropic_api_key, settings.model, settings.effort)
         else:
             drafter = TemplateDrafter()
+    if mailer is None:
+        if settings.smtp_host:
+            mailer = SMTPMailer(settings.smtp_host, settings.smtp_port, settings.mail_from, settings.smtp_user,
+                                settings.smtp_password, settings.smtp_starttls, settings.reply_to or None)
+        else:
+            mailer = OutboxMailer(settings.mail_from or "demo@localhost")
+    if notifier is None:
+        notifier = SlackNotifier(settings.alert_webhook_url) if settings.alert_webhook_url else LogNotifier()
     store = Store(settings.database_path)
-    pipeline = Pipeline(store, qualifier, criteria, crm, drafter)
+    pipeline = Pipeline(store, qualifier, criteria, crm, drafter, mailer, notifier, settings.public_url)
 
     app = FastAPI(title="AI Lead Pipeline", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.pipeline = pipeline
     app.state.store = store
+    app.state.mailer = mailer
+    app.state.notifier = notifier
 
     def require_admin(credentials: HTTPBasicCredentials | None = Depends(basic)) -> None:
         if settings.demo_mode:
@@ -71,7 +105,7 @@ def create_app(settings: Settings | None = None, qualifier: Qualifier | None = N
     @app.get("/health")
     def health() -> dict:
         return {"ok": True, "qualifier": qualifier.name, "crm": crm.name, "drafter": drafter.name,
-                "demo_mode": settings.demo_mode}
+                "mailer": mailer.name, "alerts": notifier.name, "demo_mode": settings.demo_mode}
 
     @app.post("/intake", status_code=202)
     async def intake(request: Request, background: BackgroundTasks) -> JSONResponse:
@@ -112,17 +146,45 @@ def create_app(settings: Settings | None = None, qualifier: Qualifier | None = N
             raise HTTPException(404, "Lead not found")
         return {**lead, "events": store.events(lead_id)}
 
-    @app.post("/api/leads/{lead_id}/retry", dependencies=[Depends(require_admin)])
+    actions = [Depends(require_admin), Depends(require_same_origin)]
+
+    @app.post("/api/leads/{lead_id}/retry", dependencies=actions)
     def retry(lead_id: int) -> dict:
         if not pipeline.retry(lead_id):
             raise HTTPException(409, "Only leads in needs_attention can be retried")
         return store.get(lead_id)
 
+    @app.post("/api/leads/{lead_id}/approve", dependencies=actions)
+    def approve(lead_id: int, approval: Approval, background: BackgroundTasks) -> JSONResponse:
+        """Approve the draft (edited or not). Sending runs right after, in the background."""
+        try:
+            result = pipeline.approve(lead_id, approval.subject, approval.body, approval.confirm_warnings)
+        except InvalidTransition as exc:
+            raise HTTPException(409, str(exc))
+        if not result["ok"]:
+            return JSONResponse({**result, "message": "Confirm the warnings to approve anyway."}, status_code=409)
+        background.add_task(pipeline.process, lead_id)
+        return JSONResponse(result)
+
+    @app.post("/api/leads/{lead_id}/reject", dependencies=actions)
+    def reject(lead_id: int, rejection: Rejection) -> dict:
+        try:
+            pipeline.reject(lead_id, rejection.reason)
+        except InvalidTransition as exc:
+            raise HTTPException(409, str(exc))
+        return store.get(lead_id)
+
+    @app.get("/dashboard", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+    def dashboard() -> HTMLResponse:
+        return HTMLResponse((STATIC / "dashboard.html").read_text(encoding="utf-8"),
+                            headers={"Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                                     "style-src 'unsafe-inline'; frame-ancestors 'none'"})
+
     @app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_demo)])
     def demo_page() -> str:
-        return PAGE.read_text(encoding="utf-8")
+        return (STATIC / "index.html").read_text(encoding="utf-8")
 
-    @app.post("/api/demo/reset", dependencies=[Depends(require_demo)])
+    @app.post("/api/demo/reset", dependencies=[Depends(require_demo), Depends(require_same_origin)])
     def reset() -> dict:
         store.reset()
         return {"ok": True}

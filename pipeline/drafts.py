@@ -35,7 +35,9 @@ class Drafter(Protocol):
     def draft(self, lead: dict, criteria: Criteria) -> Draft: ...
 
 
-_MONEY = re.compile(r"(?:[$€£₹]\s?\d[\d,.]*\s?k?|\b\d[\d,.]*\s?(?:usd|eur|gbp|inr|dollars|euros|pounds|rupees|lakh)\b)",
+# "$4,000." at the end of a sentence is "$4,000": the number may not end in a comma or period.
+_AMOUNT = r"\d(?:[\d,.]*\d)?"
+_MONEY = re.compile(rf"(?:[$€£₹]\s?{_AMOUNT}(?:\s?k\b)?|\b{_AMOUNT}\s?(?:usd|eur|gbp|inr|dollars|euros|pounds|rupees|lakh)\b)",
                     re.IGNORECASE)
 
 
