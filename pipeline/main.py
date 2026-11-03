@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 import secrets
+import threading
+from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -83,7 +85,13 @@ def create_app(settings: Settings | None = None, qualifier: Qualifier | None = N
     store = Store(settings.database_path)
     pipeline = Pipeline(store, qualifier, criteria, crm, drafter, mailer, notifier, settings.public_url)
 
-    app = FastAPI(title="AI Lead Pipeline", docs_url=None, redoc_url=None, openapi_url=None)
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        # Finish leads left mid-pipeline by a restart, without delaying startup.
+        threading.Thread(target=pipeline.resume_pending, name="resume-pending", daemon=True).start()
+        yield
+
+    app = FastAPI(title="AI Lead Pipeline", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.pipeline = pipeline
     app.state.store = store
     app.state.mailer = mailer

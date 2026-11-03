@@ -158,6 +158,46 @@ def test_status_updated_after_real_delivery_but_not_for_declines(tmp_path):
     assert "status" not in crm.contacts["a@x.com"]
 
 
+def test_restart_resumes_unfinished_leads_but_not_ones_waiting_for_a_person(tmp_path):
+    p, store = make(tmp_path)
+    waiting = ready(p)                                   # draft_ready: needs a person
+    stuck, _ = p.intake(Enquiry(name="Sam", email="sam@example.com", message=VAGUE))  # never processed
+    approved = ready(p, VAGUE, "lee@example.com")
+    d = store.get(approved)["draft"]
+    p.approve(approved, d["subject"], d["body"])         # approved, then the process "died"
+
+    restarted = Pipeline(store, ScriptedQualifier(), CRITERIA, FakeCRM(), TemplateDrafter(), OutboxMailer(),
+                         LogNotifier())
+    assert restarted.resume_pending() == [stuck, approved]
+    assert store.get(stuck)["state"] == "draft_ready"
+    assert store.get(approved)["state"] == "sent" and len(restarted.mailer.messages) == 1
+    assert store.get(waiting)["state"] == "draft_ready"
+    assert restarted.resume_pending() == []              # nothing left; running again is harmless
+    assert len(restarted.mailer.messages) == 1
+
+
+def test_same_lead_processed_from_two_threads_runs_each_step_once(tmp_path):
+    import threading
+    import time
+
+    class SlowQualifier(ScriptedQualifier):
+        calls = 0
+
+        def qualify(self, enquiry, criteria):
+            SlowQualifier.calls += 1
+            time.sleep(0.2)
+            return super().qualify(enquiry, criteria)
+
+    store = Store(str(tmp_path / "t.db"))
+    p = Pipeline(store, SlowQualifier(), CRITERIA, FakeCRM(), TemplateDrafter(), OutboxMailer(), LogNotifier())
+    lead_id, _ = p.intake(Enquiry(name="Priya", email="p@example.com", message=STRONG))
+    threads = [threading.Thread(target=p.process, args=(lead_id,)) for _ in range(3)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert SlowQualifier.calls == 1 and len(p.crm.contacts) == 1 and len(p.crm.notes) == 1
+    assert store.get(lead_id)["state"] == "draft_ready"
+
+
 # ---------- alerts ----------
 
 def test_strong_lead_alerts_owner_others_do_not(tmp_path):

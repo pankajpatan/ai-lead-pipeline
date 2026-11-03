@@ -4,11 +4,16 @@ Turns website enquiries into qualified, CRM-ready leads. Each enquiry is checked
 
 The sample business, Northwind Studio, is fictional. Its rules are in `criteria.yaml`.
 
-## Status
-Steps 1 to 4 of 5 are done: intake, rules, scoring, Claude qualification with an accuracy eval, HubSpot sync, drafted replies, a review dashboard that sends approved replies, and owner alerts.
-Coming next: an n8n version of the same flow and a handover guide.
+**Two versions of the same flow:**
+- **Python app** (this folder): intake, rules, Claude qualification with a measured eval, HubSpot sync, drafted replies, a review dashboard that sends approved replies, and owner alerts.
+- **n8n workflow** (`n8n/`): the same rules and prompts, built from the same source, tested on n8n 2.46.4. See [`n8n/README.md`](n8n/README.md).
 
-Tested live on 2026-11-03. Fictional leads went through Claude and into a real HubSpot account, records were read back through the API, and approved replies were sent over SMTP to a local mail catcher.
+Tested live on 2026-11-03:
+- Fictional leads went through Claude and into a real HubSpot account, and the records were read back through the API.
+- Approved replies were sent over SMTP to a local mail catcher.
+- The n8n workflow ran end to end: owner approval through a form, the reply sent, and an error alert when HubSpot rejected an address.
+
+**Docs:** [`HANDOVER.md`](HANDOVER.md) covers running, changing rules, keys and logs. [`docs/demo-video-script.md`](docs/demo-video-script.md) is a 2-minute walkthrough.
 
 ## Measured accuracy
 25 fictional enquiries with hand-labelled answers (`evals/enquiries.jsonl`), run on 2026-11-03. They cover clear fits, vague messages, Hinglish, Spanish, pounds, rupees, budgets written in words, a prompt-injection attempt, job applications, sales pitches and out-of-scope requests.
@@ -64,6 +69,8 @@ Saved results are in `evals/results/`.
 10. **Sending** happens over SMTP after approval, with the business's sender name and Reply-To. The message ID is saved as soon as the server accepts the email, so a retry after a crash never sends twice. Once sent, the reply is logged as a note in HubSpot and the lead status becomes ATTEMPTED_TO_CONTACT. Declines keep UNQUALIFIED. A failed CRM log is recorded but never blocks the email.
 11. **Owner alerts** go to a Slack webhook (or the log) when a strong lead is waiting and when any lead needs attention. Text from enquiries is defanged in alerts, so `@here`, `<!channel>` and links can't be smuggled in. A failed alert never stops the pipeline.
 
+12. **Restarts are safe.** On startup, leads left mid-pipeline are finished automatically, and leads waiting for a person stay put. A per-lead lock makes sure two threads never run the same step for the same lead.
+
 **Security:**
 - Action endpoints (approve, reject, retry) reject cross-site requests. Browsers resend basic-auth logins automatically, so without this check another site could trigger actions.
 - Header values are stripped of line breaks, to prevent email header injection.
@@ -117,3 +124,5 @@ Edit `criteria.yaml`: services, minimum budget, start window, weights, which rul
 .venv/bin/python -m pytest -q
 ```
 Claude and HubSpot are tested against fakes, so the tests need no keys and cost nothing. The HubSpot fake checks the exact request bodies (upsert by email, association types 202 and 3), as well as retries, `Retry-After`, resuming and parallel setup.
+
+`tests/test_n8n.py` runs the n8n workflow's JavaScript under Node on the same cases as the Python code. Tiers, scores, quote checks and draft warnings must match exactly. Those tests are skipped if Node isn't installed.

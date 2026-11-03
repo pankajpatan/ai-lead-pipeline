@@ -1,0 +1,60 @@
+{
+  "name": "AI lead pipeline: error alert",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "When the lead pipeline fails",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "team@example.com",
+        "toEmail": "owner@example.com",
+        "subject": "=Lead pipeline failed at {{ $json.execution.lastNodeExecuted }}",
+        "emailFormat": "text",
+        "text": "=A lead could not be processed.\n\nStep: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error.message }}\n\nOpen the run to retry it: {{ $json.execution.url }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Email owner",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        300
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "smtpAccount00001",
+          "name": "SMTP account"
+        }
+      },
+      "webhookId": null
+    }
+  ],
+  "connections": {
+    "When the lead pipeline fails": {
+      "main": [
+        [
+          {
+            "node": "Email owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "active": false,
+  "tags": []
+}

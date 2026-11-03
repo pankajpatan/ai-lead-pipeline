@@ -10,6 +10,7 @@ import dataclasses
 import hashlib
 import logging
 import re
+import threading
 
 from .alerts import Notifier, attention_text, strong_lead_text
 from .crm import CRM, SyncState
@@ -54,6 +55,8 @@ class Pipeline:
         self.mailer = mailer
         self.notifier = notifier
         self.base_url = base_url.rstrip("/")
+        self._locks: dict[int, threading.Lock] = {}
+        self._locks_guard = threading.Lock()
 
     def _alert(self, lead_id: int, text_for) -> None:
         if self.notifier is None:
@@ -85,6 +88,16 @@ class Pipeline:
 
         It stops at draft_ready: sending happens only after a person approves.
         """
+        with self._locks_guard:
+            lock = self._locks.setdefault(lead_id, threading.Lock())
+        if not lock.acquire(blocking=False):
+            return  # another thread is already moving this lead along
+        try:
+            self._process(lead_id)
+        finally:
+            lock.release()
+
+    def _process(self, lead_id: int) -> None:
         steps = {"received": self.qualify, "qualified": self.sync_crm, "crm_synced": self.draft,
                  "approved": self.send}
         while True:
@@ -225,6 +238,21 @@ class Pipeline:
         self.store.transition(lead_id, "sent", {"via": draft["via"], "delivered": draft["delivered"],
                                                 "message_id": draft["message_id"]}, error=None, resume_state=None)
         return False
+
+    AUTOMATIC_STATES = ("received", "qualified", "crm_synced", "approved")
+
+    def resume_pending(self) -> list[int]:
+        """After a restart, finish leads that were mid-pipeline when the process stopped.
+
+        Safe to repeat: each step checks its state, CRM IDs are saved as they are created,
+        and a reply whose message ID is saved is never sent again. Leads waiting for a person
+        (draft_ready, needs_attention) are left alone.
+        """
+        pending = [l["id"] for state in self.AUTOMATIC_STATES for l in self.store.leads(state)]
+        for lead_id in sorted(pending):
+            self.store.log(lead_id, "resumed_after_restart")
+            self.process(lead_id)
+        return sorted(pending)
 
     def retry(self, lead_id: int) -> bool:
         """Resume a needs_attention lead from the step that failed."""
