@@ -106,6 +106,21 @@ async function load() {
       el("li", {}, el("span", {class: c.met}, c.met), ` ${c.id}`, c.evidence ? el("span", {class: "muted"}, ` — “${c.evidence}”`) : ""))));
     if (q.missing_info && q.missing_info.length) lead.append(el("div", {class: "muted"}, "Ask: " + q.missing_info.join(" ")));
     if (q.next_action) lead.append(el("div", {}, el("strong", {}, "Next: "), q.next_action));
+    if (l.crm && l.crm.contact_id) {
+      const parts = [`contact ${l.crm.contact_id}${l.crm.created_contact ? " (new)" : " (updated)"}`, "note added"];
+      if (l.crm.deal_id) parts.push(`deal ${l.crm.deal_id}`);
+      const crm = el("div", {class: "muted"}, "CRM: " + parts.join(" · "));
+      if (l.crm.contact_url && /^https:\/\/app[-\w]*\.hubspot\.com\//.test(l.crm.contact_url)) {
+        crm.append(" · ", el("a", {href: l.crm.contact_url, target: "_blank", rel: "noopener"}, "open in HubSpot"));
+      }
+      lead.append(crm);
+    }
+    if (l.draft) {
+      const d = el("details", {}, el("summary", {}, "Draft reply: " + l.draft.subject));
+      d.append(el("div", {class: "msg"}, l.draft.body));
+      for (const w of l.draft.warnings) d.append(el("div", {class: "no"}, "Check: " + w));
+      lead.append(d);
+    }
     if (l.error) lead.append(el("div", {class: "no"}, l.error));
     box.append(lead);
   }

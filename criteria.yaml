@@ -33,6 +33,13 @@ tiers:
   strong: 70
   possible: 30
 
+# Follow-up emails. Drafts always wait for a person to approve them.
+reply:
+  sender_name: Alex at Northwind Studio
+  booking_link: https://cal.example.com/northwind/intro-call
+  # When false, drafts must not quote prices, estimates or delivery dates.
+  allow_prices: false
+
 # Phrases that mark sales pitches and spam rather than enquiries.
 spam_phrases:
   - seo services

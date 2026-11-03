@@ -12,7 +12,9 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import ValidationError
 
 from .config import Settings
+from .crm import CRM, FakeCRM, HubSpotCRM
 from .criteria import load_criteria
+from .drafts import Drafter, TemplateDrafter
 from .models import Enquiry
 from .qualifier import Qualifier, ScriptedQualifier
 from .service import Pipeline
@@ -23,7 +25,8 @@ PAGE = Path(__file__).parent / "static" / "index.html"
 basic = HTTPBasic(auto_error=False)
 
 
-def create_app(settings: Settings | None = None, qualifier: Qualifier | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, qualifier: Qualifier | None = None,
+               crm: CRM | None = None, drafter: Drafter | None = None) -> FastAPI:
     if settings is None:
         load_dotenv()
         settings = Settings.from_env()
@@ -37,8 +40,16 @@ def create_app(settings: Settings | None = None, qualifier: Qualifier | None = N
             qualifier = ClaudeQualifier(settings.anthropic_api_key, settings.model, settings.effort)
         else:
             qualifier = ScriptedQualifier()
+    if crm is None:
+        crm = HubSpotCRM(settings.hubspot_token) if settings.hubspot_token else FakeCRM()
+    if drafter is None:
+        if settings.anthropic_api_key:
+            from .drafts import ClaudeDrafter
+            drafter = ClaudeDrafter(settings.anthropic_api_key, settings.model, settings.effort)
+        else:
+            drafter = TemplateDrafter()
     store = Store(settings.database_path)
-    pipeline = Pipeline(store, qualifier, criteria)
+    pipeline = Pipeline(store, qualifier, criteria, crm, drafter)
 
     app = FastAPI(title="AI Lead Pipeline", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.pipeline = pipeline
@@ -59,7 +70,8 @@ def create_app(settings: Settings | None = None, qualifier: Qualifier | None = N
 
     @app.get("/health")
     def health() -> dict:
-        return {"ok": True, "qualifier": qualifier.name, "demo_mode": settings.demo_mode}
+        return {"ok": True, "qualifier": qualifier.name, "crm": crm.name, "drafter": drafter.name,
+                "demo_mode": settings.demo_mode}
 
     @app.post("/intake", status_code=202)
     async def intake(request: Request, background: BackgroundTasks) -> JSONResponse:
@@ -81,7 +93,7 @@ def create_app(settings: Settings | None = None, qualifier: Qualifier | None = N
 
         lead_id, outcome = pipeline.intake(enquiry)
         if outcome == "new":
-            background.add_task(pipeline.qualify, lead_id)
+            background.add_task(pipeline.process, lead_id)
         # A bot that filled the honeypot gets the same answer as a person, so it learns nothing.
         return JSONResponse(
             {"ok": True, "lead_id": lead_id, "duplicate": outcome == "duplicate"}, status_code=202

@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS leads (
     qualification TEXT,
     qualifier TEXT,
     error TEXT,
+    resume_state TEXT,
+    crm TEXT,
+    draft TEXT,
     attempts INTEGER NOT NULL DEFAULT 0,
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
@@ -51,6 +54,10 @@ TRANSITIONS: dict[str, set[str]] = {
 STATES = set(TRANSITIONS)
 
 
+JSON_FIELDS = ("qualification", "crm", "draft")
+FIELDS = {"tier", "score", "qualification", "qualifier", "error", "attempts", "resume_state", "crm", "draft"}
+
+
 class InvalidTransition(ValueError):
     pass
 
@@ -62,6 +69,11 @@ class Store:
         self._db.row_factory = sqlite3.Row
         self._db.execute("PRAGMA foreign_keys = ON")
         self._db.executescript(SCHEMA)
+        # Databases created by step 1 lack the newer columns.
+        have = {r["name"] for r in self._db.execute("PRAGMA table_info(leads)")}
+        for column in ("resume_state", "crm", "draft"):
+            if column not in have:
+                self._db.execute(f"ALTER TABLE leads ADD COLUMN {column} TEXT")
         self._db.commit()
 
     def add_lead(self, idem_key: str, source: str, name: str, email: str, company: str | None,
@@ -85,13 +97,17 @@ class Store:
             self._db.commit()
             return lead_id, True
 
+    def update(self, lead_id: int, **fields: Any) -> None:
+        """Change fields without changing state (for progress saved inside a step)."""
+        fields = _encode(fields)
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        with self._lock:
+            self._db.execute(f"UPDATE leads SET {sets}, updated_at = ? WHERE id = ?",
+                             (*fields.values(), time.time(), lead_id))
+            self._db.commit()
+
     def transition(self, lead_id: int, new_state: str, detail: Any = None, **fields: Any) -> None:
-        allowed = {"tier", "score", "qualification", "qualifier", "error", "attempts"}
-        unknown = set(fields) - allowed
-        if unknown:
-            raise ValueError(f"Unknown lead fields: {sorted(unknown)}")
-        if "qualification" in fields and not isinstance(fields["qualification"], (str, type(None))):
-            fields["qualification"] = json.dumps(fields["qualification"])
+        fields = _encode(fields)
         now = time.time()
         with self._lock:
             row = self._db.execute("SELECT state FROM leads WHERE id = ?", (lead_id,)).fetchone()
@@ -152,8 +168,17 @@ class Store:
             self._db.commit()
 
 
+def _encode(fields: dict[str, Any]) -> dict[str, Any]:
+    unknown = set(fields) - FIELDS
+    if unknown:
+        raise ValueError(f"Unknown lead fields: {sorted(unknown)}")
+    return {k: json.dumps(v) if k in JSON_FIELDS and v is not None and not isinstance(v, str) else v
+            for k, v in fields.items()}
+
+
 def _decode(row: sqlite3.Row) -> dict[str, Any]:
     lead = dict(row)
-    if lead.get("qualification"):
-        lead["qualification"] = json.loads(lead["qualification"])
+    for key in JSON_FIELDS:
+        if lead.get(key):
+            lead[key] = json.loads(lead[key])
     return lead

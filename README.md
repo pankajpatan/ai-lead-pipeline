@@ -5,8 +5,10 @@ Turns website enquiries into qualified, CRM-ready leads. Each enquiry is checked
 The sample business, Northwind Studio, is fictional. Its rules are in `criteria.yaml`.
 
 ## Status
-Steps 1 and 2 of 5 are done: intake, storage, rules, scoring, Claude qualification and an accuracy eval.
-Coming next: HubSpot sync, drafted follow-ups with an approval screen, retries and alerts, and an n8n version.
+Steps 1 to 3 of 5 are done: intake, rules, scoring, Claude qualification with an accuracy eval, HubSpot sync and drafted follow-ups.
+Coming next: an approval screen that sends the draft, alerts, and an n8n version.
+
+Tested live against a HubSpot account on 2026-11-03 (three fictional leads, records read back through the API).
 
 ## Measured accuracy
 25 fictional enquiries with hand-labelled answers (`evals/enquiries.jsonl`), run on 2026-11-03. They cover clear fits, vague messages, Hinglish, Spanish, pounds, rupees, budgets written in words, a prompt-injection attempt, job applications, sales pitches and out-of-scope requests.
@@ -39,8 +41,23 @@ Saved results are in `evals/results/`.
    - A yes or no whose quote is not in the enquiry is changed to unknown.
    - A clear no on a required rule (service, budget) makes the lead poor.
    - Otherwise the weights of the yes answers are summed against the thresholds in `criteria.yaml`.
-5. A failed qualification never loses the lead: an API error, a refusal or a cut-off reply. The SDK retries 429 and 5xx errors first. If the call still fails, the lead waits in `needs_attention` with the error, and `POST /api/leads/{id}/retry` runs it again.
-6. Every Claude answer stores the model, request ID, tokens and time with the lead, for cost tracking and support.
+5. **HubSpot sync** (spam is skipped):
+   - The contact is upserted by email, so a returning client updates one contact instead of creating a duplicate.
+   - It sets `Lead fit tier`, `Lead fit score` (custom fields, created on first run) and `Lead status` (poor leads become UNQUALIFIED).
+   - A note on the contact's timeline holds the summary, every criterion with its quote, the questions still to ask and the original message. Enquiry text is HTML-escaped.
+   - Strong leads also get a deal in the default pipeline, with the budget as the amount.
+6. **Draft reply**, written in the enquiry's language:
+   - strong: a booking link
+   - possible: the missing questions
+   - poor: a short, polite decline
+   - Code then checks the draft against the rules and shows warnings to the approver: a price the client didn't give, a booking link sent to the wrong tier, a missing link, placeholders or overlong text.
+   - Nothing is sent automatically.
+7. **Failures never lose a lead.** API errors, refusals, cut-off replies and HubSpot errors all leave the lead in `needs_attention`, with the error and the step to resume from.
+   - The Anthropic SDK retries 429 and 5xx errors. HubSpot calls retry too, and wait for `Retry-After` on 429.
+   - Each HubSpot ID (contact, note, deal) is saved as soon as it exists, so `POST /api/leads/{id}/retry` continues where the lead stopped. It never re-qualifies the lead or duplicates records.
+8. Every Claude answer stores the model, request ID, tokens and time with the lead, for cost tracking and support.
+
+The live test found one real bug, now fixed and covered by a test. Three leads arriving at once all tried to create the custom fields, and HubSpot rejected two of them with 409. Those two leads waited in `needs_attention`, and a retry finished them without repeating any work.
 
 ## Run the demo
 ```bash
@@ -50,7 +67,9 @@ cp .env.example .env    # optional: add ANTHROPIC_API_KEY to use Claude
 .venv/bin/uvicorn --factory pipeline.main:create_app --host 127.0.0.1 --port 8020
 ```
 
-Open http://127.0.0.1:8020 and try the sample buttons. Without a key, the keyword rules qualify leads.
+Open http://127.0.0.1:8020 and try the sample buttons. With no keys at all, everything still runs: keyword rules qualify, an in-memory fake CRM stands in for HubSpot, and template replies are drafted.
+
+To use HubSpot, create a service key (Development > Keys > Service keys) with the scopes listed in `.env.example`, and set `HUBSPOT_TOKEN`. Use a test account, not a production CRM, while trying it.
 
 Settings in `.env`:
 - `LEAD_MODEL` defaults to `claude-opus-5-5`. Pick a model from the eval table.
@@ -75,4 +94,4 @@ Edit `criteria.yaml`: services, minimum budget, start window, weights, which rul
 ```bash
 .venv/bin/python -m pytest -q
 ```
-The Claude qualifier is tested against a fake client, so the tests need no key and cost nothing.
+Claude and HubSpot are tested against fakes, so the tests need no keys and cost nothing. The HubSpot fake checks the exact request bodies (upsert by email, association types 202 and 3), as well as retries, `Retry-After`, resuming and parallel setup.

@@ -20,6 +20,7 @@ class Settings:
     anthropic_api_key: str = ""
     model: str = "claude-opus-5-5"
     effort: str = "low"
+    hubspot_token: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -31,6 +32,7 @@ class Settings:
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
             model=os.getenv("LEAD_MODEL", "claude-opus-5-5"),
             effort=os.getenv("LEAD_EFFORT", "low"),
+            hubspot_token=os.getenv("HUBSPOT_TOKEN", ""),
         )
 
     def validate(self) -> None:

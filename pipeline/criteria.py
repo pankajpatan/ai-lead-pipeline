@@ -16,6 +16,12 @@ class Criterion(BaseModel):
     max_start_months: int | None = None
 
 
+class Reply(BaseModel):
+    sender_name: str = "The team"
+    booking_link: str | None = None
+    allow_prices: bool = False
+
+
 class Criteria(BaseModel):
     business: str
     description: str = ""
@@ -23,6 +29,7 @@ class Criteria(BaseModel):
     criteria: list[Criterion]
     tiers: dict[str, int]
     spam_phrases: list[str] = []
+    reply: Reply = Reply()
 
     @model_validator(mode="after")
     def check(self) -> "Criteria":

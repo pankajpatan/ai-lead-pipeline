@@ -203,12 +203,15 @@ def test_honeypot_is_rejected_without_qualifying(store):
 
 # ---------- HTTP ----------
 
-def test_intake_json_qualifies_in_background(client):
+def test_intake_json_runs_every_step_in_background(client):
     r = client.post("/intake", json={"name": "Priya", "email": "priya@example.com", "message": STRONG})
     assert r.status_code == 202 and r.json() == {"ok": True, "lead_id": 1, "duplicate": False}
     lead = client.get("/api/leads/1").json()
-    assert lead["state"] == "qualified" and lead["tier"] == "strong"
-    assert [e["kind"] for e in lead["events"]] == ["received", "qualified"]
+    assert lead["state"] == "draft_ready" and lead["tier"] == "strong"
+    assert [e["kind"] for e in lead["events"]] == ["received", "qualified", "crm_synced", "draft_ready"]
+    assert lead["crm"]["contact_id"] == "1" and lead["crm"]["deal_id"] == "1"
+    assert "cal.example.com" in lead["draft"]["body"] and lead["draft"]["warnings"] == []
+    assert client.get("/health").json()["crm"] == "fake"
 
 
 def test_intake_form_post_and_duplicate(client):
