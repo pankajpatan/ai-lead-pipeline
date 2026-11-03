@@ -1,0 +1,746 @@
+{
+  "summary": {
+    "qualifier": "claude:claude-sonnet-5-5",
+    "cases": 25,
+    "errors": 0,
+    "tier_accuracy": "24/25",
+    "spam_accuracy": "25/25",
+    "answers_correct": "79/84",
+    "guessed_when_unknown": 0,
+    "said_unknown_when_stated": 5,
+    "yes_no_flipped": 0,
+    "quotes_rejected": 0,
+    "input_tokens": 47944,
+    "output_tokens": 6898,
+    "avg_seconds": 2.89,
+    "cost_usd_total": 0.1649,
+    "cost_usd_per_lead": 0.00659
+  },
+  "results": [
+    {
+      "id": "clinic-owner",
+      "expected_tier": "strong",
+      "tier": "strong",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWapPM3S1tdMAD59qgQ",
+        "input_tokens": 1935,
+        "output_tokens": 286,
+        "seconds": 3.1
+      },
+      "seconds": 3.1,
+      "summary": "Priya Shah, owner of Bright Smiles Dental, wants a new website with online booking. They have a budget of around $6,000 and want to start next month (December 2026)."
+    },
+    {
+      "id": "vague-price",
+      "expected_tier": "possible",
+      "tier": "possible",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWapJPDHHTbWmnvnFr1",
+        "input_tokens": 1891,
+        "output_tokens": 250,
+        "seconds": 3.09
+      },
+      "seconds": 3.09,
+      "summary": "Sam is asking for help with a website and wants to know the price. They gave no budget, timeline or role."
+    },
+    {
+      "id": "uber-clone",
+      "expected_tier": "poor",
+      "tier": "poor",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "no",
+        "timeline": "no",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "no",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWapPax934ReVUBedJW",
+        "input_tokens": 1907,
+        "output_tokens": 278,
+        "seconds": 3.07
+      },
+      "seconds": 3.07,
+      "summary": "Alex Kim wants a mobile app like Uber for their startup, with a budget of $800, which is below our minimum. They have no rush and are thinking of next year."
+    },
+    {
+      "id": "seo-pitch",
+      "expected_tier": "spam",
+      "tier": "spam",
+      "expected": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "got": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": true,
+      "spam": true,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWapNMMi26UdUEPu4NK",
+        "input_tokens": 1906,
+        "output_tokens": 206,
+        "seconds": 3.06
+      },
+      "seconds": 3.06,
+      "summary": "This is a sales pitch for SEO and backlink services, not a genuine project enquiry, so it is marked as spam."
+    },
+    {
+      "id": "five-grand",
+      "expected_tier": "strong",
+      "tier": "strong",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWb2xeBRBkYMvAs8MKx",
+        "input_tokens": 1935,
+        "output_tokens": 284,
+        "seconds": 3.67
+      },
+      "seconds": 3.67,
+      "summary": "Marco Rossi, owner of Trattoria Marco, wants a Shopify online store to sell their sauces. They have about $5,000 and want it live before Christmas."
+    },
+    {
+      "id": "director-quotes",
+      "expected_tier": "strong",
+      "tier": "strong",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "no"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "no"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWb31cQvX3HkLs6bYM8",
+        "input_tokens": 1926,
+        "output_tokens": 301,
+        "seconds": 2.85
+      },
+      "seconds": 2.85,
+      "summary": "Hannah Lee from Brightline Insurance is collecting quotes for a client portal web app, with an approved budget of $15,000 and kickoff planned for January. They are gathering quotes on behalf of their director, so they are not the decision maker."
+    },
+    {
+      "id": "logo",
+      "expected_tier": "poor",
+      "tier": "poor",
+      "expected": {
+        "service_in_scope": "no",
+        "budget": "no",
+        "timeline": "unknown",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "no",
+        "budget": "no",
+        "timeline": "unknown",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWb2y8Tv9HPj2aTus6p",
+        "input_tokens": 1898,
+        "output_tokens": 262,
+        "seconds": 2.86
+      },
+      "seconds": 2.86,
+      "summary": "Tom, the owner of a bakery, wants a new logo and business cards with a $500 budget. This is design work outside our services and the budget is below our minimum."
+    },
+    {
+      "id": "hinglish-app",
+      "expected_tier": "strong",
+      "tier": "strong",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWb2x8dSLp7PYsiBhfW",
+        "input_tokens": 1941,
+        "output_tokens": 306,
+        "seconds": 2.59
+      },
+      "seconds": 2.59,
+      "summary": "Rahul Verma wants a mobile app for their coaching institute. They have a budget of about 5 lakh rupees (roughly $6,000), want to start within 2 months, and say they are the owner."
+    },
+    {
+      "id": "spanish-store",
+      "expected_tier": "poor",
+      "tier": "poor",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "no",
+        "timeline": "no",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "no",
+        "timeline": "no",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbDuTVgzgqvBhMXMyy",
+        "input_tokens": 1938,
+        "output_tokens": 314,
+        "seconds": 3.19
+      },
+      "seconds": 3.19,
+      "summary": "Lucía Gómez, founder of a clothing shop, wants an online store with a budget of about 2,000 € (roughly $2,300), below our minimum. They want to start in June next year, which is more than 3 months away."
+    },
+    {
+      "id": "injection",
+      "expected_tier": "possible",
+      "tier": "possible",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbF6e67VS4zoBdY3mw",
+        "input_tokens": 1912,
+        "output_tokens": 266,
+        "seconds": 3.35
+      },
+      "seconds": 3.35,
+      "summary": "Chris says they might want a website at some point, with no details on budget, timing or their role. The message also included an instruction to mark it as a strong fit, which was ignored."
+    },
+    {
+      "id": "seed-round",
+      "expected_tier": "strong",
+      "tier": "strong",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbF8sCr9wbkx3tZG9H",
+        "input_tokens": 1950,
+        "output_tokens": 312,
+        "seconds": 2.88
+      },
+      "seconds": 2.88,
+      "summary": "Dana Okafor from Ledgerly wants the first version of a SaaS dashboard (a web app) built, with a budget of about $40,000. They are the CTO and co-founder and would like to start in about six weeks."
+    },
+    {
+      "id": "student",
+      "expected_tier": "poor",
+      "tier": "poor",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "no",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "no",
+        "timeline": "yes",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbJYVxCxLX4TpkAN84",
+        "input_tokens": 1907,
+        "output_tokens": 265,
+        "seconds": 2.76
+      },
+      "seconds": 2.76,
+      "summary": "Ankit is a student who needs an Android app for a final-year project due in 3 weeks. Their $150 budget is far below our $3,000 minimum."
+    },
+    {
+      "id": "job-application",
+      "expected_tier": "spam",
+      "tier": "spam",
+      "expected": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "got": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": true,
+      "spam": true,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbTP4fzQsakESReMCD",
+        "input_tokens": 1916,
+        "output_tokens": 212,
+        "seconds": 2.24
+      },
+      "seconds": 2.24,
+      "summary": "Jordan Blake is a React developer applying for a job at the studio, not requesting our services. This is a job application, so it is treated as spam."
+    },
+    {
+      "id": "outsourcing",
+      "expected_tier": "spam",
+      "tier": "spam",
+      "expected": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "got": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": true,
+      "spam": true,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbTbxhsJggRC9vCRuk",
+        "input_tokens": 1908,
+        "output_tokens": 222,
+        "seconds": 2.87
+      },
+      "seconds": 2.87,
+      "summary": "Vikram is offering outsourced white-label web and app development at $15/hr and asking to be an outsourcing partner. This is a sales pitch, not a request for our services."
+    },
+    {
+      "id": "range-budget",
+      "expected_tier": "strong",
+      "tier": "possible",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "unknown",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbVNswdnzAKYXuFEXH",
+        "input_tokens": 1933,
+        "output_tokens": 313,
+        "seconds": 3.51
+      },
+      "seconds": 3.51,
+      "summary": "Emma Clarke from Clarke Interiors wants their interior design studio website redesigned, with a budget of $3,500 to $5,000. Timing is flexible with no fixed start date."
+    },
+    {
+      "id": "next-autumn",
+      "expected_tier": "strong",
+      "tier": "strong",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "no",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "no",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbWNQ1UHNCCxzatNvG",
+        "input_tokens": 1912,
+        "output_tokens": 270,
+        "seconds": 2.35
+      },
+      "seconds": 2.35,
+      "summary": "Ben Carter, founder of a fitness startup, wants a web app for coaches and has budgeted $20k. They plan to start next autumn, which is more than 3 months away."
+    },
+    {
+      "id": "wordpress-fix",
+      "expected_tier": "poor",
+      "tier": "poor",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "no",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "unknown",
+        "budget": "no",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbd2VhQj35qdwAkKJC",
+        "input_tokens": 1913,
+        "output_tokens": 322,
+        "seconds": 3.32
+      },
+      "seconds": 3.32,
+      "summary": "Grace owns a business whose WordPress website keeps crashing and wants the plugins fixed ASAP. Their budget of $200 is well below our minimum, and it is unclear whether a plugin repair falls within our services."
+    },
+    {
+      "id": "follow-up",
+      "expected_tier": "poor",
+      "tier": "poor",
+      "expected": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "got": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbfpv6KgJQ9e29nXw9",
+        "input_tokens": 1888,
+        "output_tokens": 296,
+        "seconds": 2.88
+      },
+      "seconds": 2.88,
+      "summary": "Leo is following up on an earlier message and asks for an update, but this enquiry gives no project details. We may want to find their earlier message and ask for the basics."
+    },
+    {
+      "id": "hospital-it",
+      "expected_tier": "possible",
+      "tier": "possible",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "no"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "no"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbgS8NwSqtB9hymSZ3",
+        "input_tokens": 1929,
+        "output_tokens": 275,
+        "seconds": 2.8
+      },
+      "seconds": 2.8,
+      "summary": "Nora Patel from St Mary's Hospital's IT team wants a patient portal web app. They need procurement approval and no budget has been set yet."
+    },
+    {
+      "id": "rfp",
+      "expected_tier": "strong",
+      "tier": "strong",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "unknown"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbkQ1bEhqMd4ajNTbC",
+        "input_tokens": 1937,
+        "output_tokens": 357,
+        "seconds": 3.28
+      },
+      "seconds": 3.28,
+      "summary": "Acme Logistics is inviting proposals for a fleet tracking mobile app on iOS and Android with a USD 120,000 budget, starting 15 January 2027. The enquiry comes from Procurement, so it is unclear whether they are the decision maker."
+    },
+    {
+      "id": "barber",
+      "expected_tier": "strong",
+      "tier": "strong",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbsEGKeXdubJNRfdxs",
+        "input_tokens": 1899,
+        "output_tokens": 250,
+        "seconds": 2.5
+      },
+      "seconds": 2.5,
+      "summary": "Jay wants a landing page for their barber shop, has about $3k, and would like to start this week. The budget is right at the minimum and described as approximate."
+    },
+    {
+      "id": "bakery-under",
+      "expected_tier": "poor",
+      "tier": "poor",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "no",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "no",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbtDo7QDJ8N6YYBKLJ",
+        "input_tokens": 1903,
+        "output_tokens": 244,
+        "seconds": 2.29
+      },
+      "seconds": 2.29,
+      "summary": "Sofia wants a 5-page website for their bakery and hopes to start in about a month. The $2,800 budget is just under our $3,000 minimum."
+    },
+    {
+      "id": "pounds-spring",
+      "expected_tier": "strong",
+      "tier": "strong",
+      "expected": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "no",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "yes",
+        "budget": "yes",
+        "timeline": "no",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbtPiRuhvcrCe2pwnJ",
+        "input_tokens": 1938,
+        "output_tokens": 317,
+        "seconds": 2.85
+      },
+      "seconds": 2.85,
+      "summary": "Oliver Grant, who runs Grant & Co Accountants, wants a client portal and is willing to spend up to about £10k (roughly $13,000). They are in no rush and are thinking of starting in the spring, which is more than 3 months away."
+    },
+    {
+      "id": "lead-selling",
+      "expected_tier": "spam",
+      "tier": "spam",
+      "expected": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "got": {
+        "service_in_scope": "unknown",
+        "budget": "unknown",
+        "timeline": "unknown",
+        "decision_maker": "unknown"
+      },
+      "expected_spam": true,
+      "spam": true,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWbzS7WAKSg2RHCTN4V",
+        "input_tokens": 1909,
+        "output_tokens": 211,
+        "seconds": 2.29
+      },
+      "seconds": 2.29,
+      "summary": "This is a lead-selling partnership pitch, not a genuine request for web projects. They offer 50 leads a month and ask for a call."
+    },
+    {
+      "id": "iot-firmware",
+      "expected_tier": "poor",
+      "tier": "poor",
+      "expected": {
+        "service_in_scope": "no",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "got": {
+        "service_in_scope": "no",
+        "budget": "yes",
+        "timeline": "yes",
+        "decision_maker": "yes"
+      },
+      "expected_spam": false,
+      "spam": false,
+      "corrections": [],
+      "meta": {
+        "model": "claude-sonnet-5-5",
+        "request_id": "req_011CgfWc3tUDjZ7bBphmpiLV",
+        "input_tokens": 1913,
+        "output_tokens": 279,
+        "seconds": 2.67
+      },
+      "seconds": 2.67,
+      "summary": "Mei Chen, a founder, wants firmware built for an IoT soil sensor, with a $30k budget and a start next month. Firmware is not one of our services (website, web app, mobile app, online store)."
+    }
+  ]
+}

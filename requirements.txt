@@ -4,5 +4,6 @@ pydantic>=2.7
 python-dotenv>=1.0
 python-multipart>=0.0.9
 pyyaml>=6.0
+anthropic>=1.17,<2
 httpx2>=1.0
 pytest>=8

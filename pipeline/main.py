@@ -32,7 +32,11 @@ def create_app(settings: Settings | None = None, qualifier: Qualifier | None = N
 
     criteria = load_criteria(settings.criteria_path)
     if qualifier is None:
-        qualifier = ScriptedQualifier()  # the Claude qualifier arrives in step 2
+        if settings.anthropic_api_key:
+            from .claude import ClaudeQualifier
+            qualifier = ClaudeQualifier(settings.anthropic_api_key, settings.model, settings.effort)
+        else:
+            qualifier = ScriptedQualifier()
     store = Store(settings.database_path)
     pipeline = Pipeline(store, qualifier, criteria)
 

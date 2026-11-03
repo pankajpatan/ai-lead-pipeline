@@ -12,8 +12,13 @@ from .criteria import Criteria
 from .models import CriterionCheck, Qualification, Scored
 
 
+_SAME = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-", " ": " "})
+
+
 def _norm(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip().lower()
+    """Compare quotes loosely: case, spacing, curly quotes and dash styles don't matter."""
+    text = text.translate(_SAME)
+    return re.sub(r"\s+", " ", text).strip().strip("\"'.,").lower()
 
 
 def validate(q: Qualification, criteria: Criteria, enquiry_text: str) -> tuple[Qualification, list[str]]:
@@ -48,19 +53,21 @@ def validate(q: Qualification, criteria: Criteria, enquiry_text: str) -> tuple[Q
     return q.model_copy(update={"checks": checks}), corrections
 
 
+def tier_for(answers: dict[str, str], is_spam: bool, criteria: Criteria) -> tuple[str, int]:
+    """The business rules: (tier, score) for a set of yes/no/unknown answers."""
+    if is_spam:
+        return "spam", 0
+    total = sum(c.weight for c in criteria.criteria if answers.get(c.id) == "yes")
+    if any(c.required and answers.get(c.id) == "no" for c in criteria.criteria):
+        return "poor", total
+    if total >= criteria.tiers["strong"]:
+        return "strong", total
+    if total >= criteria.tiers["possible"]:
+        return "possible", total
+    return "poor", total
+
+
 def score(q: Qualification, criteria: Criteria, enquiry_text: str) -> Scored:
     q, corrections = validate(q, criteria, enquiry_text)
-    if q.is_spam:
-        return Scored(tier="spam", score=0, qualification=q, corrections=corrections)
-
-    answers = {c.id: c.met for c in q.checks}
-    total = sum(c.weight for c in criteria.criteria if answers[c.id] == "yes")
-    if any(c.required and answers[c.id] == "no" for c in criteria.criteria):
-        tier = "poor"
-    elif total >= criteria.tiers["strong"]:
-        tier = "strong"
-    elif total >= criteria.tiers["possible"]:
-        tier = "possible"
-    else:
-        tier = "poor"
+    tier, total = tier_for({c.id: c.met for c in q.checks}, q.is_spam, criteria)
     return Scored(tier=tier, score=total, qualification=q, corrections=corrections)

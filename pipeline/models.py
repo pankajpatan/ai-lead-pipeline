@@ -1,7 +1,7 @@
 """Data shapes shared by intake, qualifiers and storage."""
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -50,6 +50,8 @@ class Qualification(BaseModel):
     missing_info: list[str] = []
     summary: str = ""
     next_action: str = ""
+    # Model, request ID, tokens and time, when an API produced the answer.
+    meta: dict[str, Any] = {}
 
 
 class Scored(BaseModel):
